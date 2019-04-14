@@ -42,8 +42,11 @@
                          (take-while identity)
                          (filter dp/addable-classpath?)
                          (last))]
-    (when (dp/add-classpath-url classloader url)
-      url)))
+    (if (dp/add-classpath-url classloader url)
+      url
+      (binding [*out* *err*]
+        (println (str url " could not be loaded. "
+                      "No modifiable classloader is available."))))))
 
 (defn jdk-find
   "Search common JDK path configurations for a specified file name and return a

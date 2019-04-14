@@ -4,11 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :scm {:name "git" :url "https://github.com/clojure-emacs/orchard"}
-  :dependencies [;; We can't update dynapath to 1.0 as it removes the functionality we need from it
-                 ;; We have to eventually apply the fix outlined here
-                 ;; https://github.com/tobias/dynapath#note-on-urlclassloader
-                 ;; See also https://github.com/clojure-emacs/cider-nrepl/issues/482
-                 [org.tcrawley/dynapath "0.2.5"]
+  :dependencies [[org.tcrawley/dynapath "1.0.0"]
                  [org.clojure/java.classpath "0.3.0"]
                  [org.clojure/tools.namespace "0.3.0-alpha4"]]
   :exclusions [org.clojure/clojure] ; see versions matrix below

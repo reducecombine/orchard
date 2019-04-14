@@ -8,6 +8,20 @@
 (def jdk-parser? (or (>= java-api-version 9) jdk-tools))
 (def jdk-sources? (and jdk-sources (< java-api-version 9))) ; TODO modular JDK (9+) not yet supported
 
+(deftest parser-resources-test
+  ;; Parser resources must be present and a modifiable classloader must be
+  ;; available to run parser tests. Don't fail when this isn't true, but yell
+  ;; about it so it's evident.
+  (binding [*out* *err*]
+    (when-not (and jdk-parser? jdk-sources?)
+      (println)
+      (when-not jdk-parser? ; only a risk on JDK8 and below
+        (println "WARNING: Java parser tests cannot be run:"
+                 "tools.jar is not available."))
+      (when-not jdk-sources?
+        (println "WARNING: JDK source dependent tests cannot be run:"
+                 "src.zip is not available.")))))
+
 (deftest source-info-test
   (let [resolve-src (comp (fnil io/resource "-none-") :file source-info)]
     (when jdk-parser?
