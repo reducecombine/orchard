@@ -39,7 +39,8 @@
    if available"
   []
   (let [thread (Thread/currentThread)
-        loader (or @Compiler/LOADER
+        loader (or (last (filter dp/addable-classpath?
+                                 (classloaders @Compiler/LOADER)))
                    (throw (Exception. "DynamicClassloader not available")))]
     (.setContextClassLoader thread loader)
     loader))
