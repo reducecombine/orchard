@@ -40,7 +40,7 @@
   []
   (let [thread (Thread/currentThread)
         loader (or @Compiler/LOADER
-                   (DynamicClassLoader. (context-classloader)))]
+                   (throw (Exception. "DynamicClassloader not available")))]
     (.setContextClassLoader thread loader)
     loader))
 
