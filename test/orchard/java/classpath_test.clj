@@ -1,9 +1,11 @@
 (ns orchard.java.classpath-test
   (:require
+   [clojure.java.classpath]
    [clojure.java.io :as io]
    [clojure.set :as set]
    [clojure.string :as str]
    [clojure.test :refer :all]
+   [orchard.java]
    [orchard.java.classpath :as cp]
    [orchard.misc :as misc])
   (:import
@@ -76,3 +78,8 @@
         (is (set/subset?
              (set orig-classloaders)
              (set (cp/classloaders))))))))
+
+(deftest works
+  (testing "The presence of the orchard library does not affect the clojure.java.classpath library, particularly on JDK11"
+    @orchard.java/initializer ;; make tests deterministic
+    (is (seq (clojure.java.classpath/classpath-directories)))))

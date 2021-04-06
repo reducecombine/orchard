@@ -171,13 +171,13 @@
   Constructor
   (reflect-info [c]
     {:argtypes (mapv typesym (:parameter-types c))
-     :throws (map typesym (:exception-types c))})
+     :throws   (map typesym (:exception-types c))})
 
   Method
   (reflect-info [m]
     {:argtypes (mapv typesym (:parameter-types m))
-     :throws (map typesym (:exception-types m))
-     :returns (typesym (:return-type m))})
+     :throws   (map typesym (:exception-types m))
+     :returns  (typesym (:return-type m))})
 
   Field
   (reflect-info [f]
@@ -185,19 +185,19 @@
 
   IPersistentMap ; => Class
   (reflect-info [c]
-    {:name (:name c)
+    {:name      (:name c)
      :modifiers (:flags c)
-     :members (->> (:members c)
-                   ;; Merge type-specific attributes with common ones.
-                   (map (fn [m]
-                          (merge {:name (:name m)
-                                  :modifiers (:flags m)}
-                                 (reflect-info m))))
-                   ;; Index by name, argtypes. Args for fields are nil.
-                   (group-by :name)
-                   (reduce (fn [ret [n ms]]
-                             (assoc ret n (zipmap (map :argtypes ms) ms)))
-                           {}))}))
+     :members   (->> (:members c)
+                     ;; Merge type-specific attributes with common ones.
+                     (map (fn [m]
+                            (merge {:name      (:name m)
+                                    :modifiers (:flags m)}
+                                   (reflect-info m))))
+                     ;; Index by name, argtypes. Args for fields are nil.
+                     (group-by :name)
+                     (reduce (fn [ret [n ms]]
+                               (assoc ret n (zipmap (map :argtypes ms) ms)))
+                             {}))}))
 
 (defn- package
   "An alternative to .getPackage, which works for classes defined with deftype and defrecord.
@@ -215,18 +215,22 @@
   "For the class symbol, return Java class and member info. Members are indexed
   first by name, and then by argument types to list all overloads."
   [class]
-  (when-let [^Class c (try (Class/forName (str class))
-                           (catch Exception _)
-                           (catch LinkageError _))]
-    (let [r (JavaReflector. (.getClassLoader c))] ; for dynamically loaded classes
-      (misc/deep-merge (reflect-info (r/reflect c :reflector r))
-                       (source-info class)
-                       {:name       (-> c .getSimpleName symbol)
-                        :class      (-> c .getName symbol)
-                        :package    (some-> c package symbol)
-                        :super      (-> c .getSuperclass typesym)
-                        :interfaces (map typesym (.getInterfaces c))
-                        :javadoc    (javadoc-url class)}))))
+  (let [cl (cp/context-classloader)]
+    (try
+      (when-let [^Class c (try (Class/forName (str class))
+                               (catch Exception _)
+                               (catch LinkageError _))]
+        (let [r (JavaReflector. (.getClassLoader c))] ; for dynamically loaded classes
+          (misc/deep-merge (reflect-info (r/reflect c :reflector r))
+                           (source-info class)
+                           {:name       (-> c .getSimpleName symbol)
+                            :class      (-> c .getName symbol)
+                            :package    (some-> c package symbol)
+                            :super      (-> c .getSuperclass typesym)
+                            :interfaces (map typesym (.getInterfaces c))
+                            :javadoc    (javadoc-url class)})))
+      (finally
+        (cp/set-classloader! cl)))))
 
 ;;; ## Class Metadata Caching
 ;;
@@ -309,14 +313,14 @@
             static? (or (:static (:modifiers m*)) (= class member))
             +this   (comp vec (partial cons 'this))]
         (-> (dissoc m* :name :argnames)
-            (assoc :class class
-                   :member member
-                   :file (:file c)
+            (assoc :class    class
+                   :member   member
+                   :file     (:file c)
                    :arglists (map #((if static? identity +this)
                                     (or (:argnames %) (:argtypes %)))
                                   (vals m))
-                   :javadoc (javadoc-url class member
-                                         (:argtypes m*))))))))
+                   :javadoc  (javadoc-url class member
+                                          (:argtypes m*))))))))
 
 ;;; ## Class/Member Resolution
 ;;
@@ -393,8 +397,8 @@
   two reasons:
   1. Add Java 13+ to this list
   2. Backport newer data to older Clojure releases"
-  {8 "https://docs.oracle.com/javase/8/docs/api/"
-   9 "https://docs.oracle.com/javase/9/docs/api/"
+  {8  "https://docs.oracle.com/javase/8/docs/api/"
+   9  "https://docs.oracle.com/javase/9/docs/api/"
    10 "https://docs.oracle.com/javase/10/docs/api/"
    11 "https://docs.oracle.com/en/java/javase/11/docs/api/"
    12 "https://docs.oracle.com/en/java/javase/12/docs/api/"
@@ -424,7 +428,13 @@
 ;;; ## Initialization
 ;;
 ;; On startup, cache info for the most commonly referenced classes.
-(future
-  (doseq [class (->> (ns-imports 'clojure.core)
-                     (map #(-> % ^Class val .getName symbol)))]
-    (class-info class)))
+(def initializer
+  (future
+    (let [c (cp/context-classloader)]
+      (try
+        (cp/set-classloader! (clojure.lang.DynamicClassLoader. (clojure.lang.RT/baseLoader)))
+        (doseq [class (->> (ns-imports 'clojure.core)
+                           (map #(-> % ^Class val .getName symbol)))]
+          (class-info class))
+        (finally
+          (cp/set-classloader! c))))))
